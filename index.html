@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Aplicación de reconocimiento de rostro y manos con inteligencia artificial — INFRAMEN, Desarrollo de Software.">
+  <title>Reconocimiento de rostro y manos | INFRAMEN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ENCABEZADO INSTITUCIONAL -->
+  <header class="encabezado">
+    <div class="encabezado__logo">
+      <img class="logo" src="logo.png" alt="Escudo INFRAMEN">
+    </div>
+    <div class="encabezado__info">
+      <p class="encabezado__nombre">INSTITUTO NACIONAL "GENERAL FRANCISCO MENENDEZ"</p>
+      <p class="encabezado__siglas">INFRAMEN</p>
+      <p class="encabezado__carrera">DESARROLLO DE SOFTWARE</p>
+      <p class="encabezado__docente">Prof. Ricardo Ernesto Melara</p>
+    </div>
+  </header>
+
+  <!-- BARRA DE PERIODO -->
+  <div class="franja">
+    <span>Periodo IV</span>
+    <span class="franja__sep" aria-hidden="true">&#x2022;</span>
+    <span>Clase III: "Reconocimiento de rostro"</span>
+  </div>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <main class="app">
+
+    <!-- VISOR (video + canvas) -->
+    <section class="escenario">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="dibujo"></canvas>
+      <canvas id="lienzo"></canvas>
+      <button id="btnIniciar" type="button">Activar c&#225;mara</button>
+    </section>
+
+    <!-- PANEL DE CONTROL -->
+    <aside class="panel">
+
+      <!-- Estado y contador -->
+      <div class="panel__header">
+        <h1 class="panel__title">Rostros y manos</h1>
+        <p id="estado" class="panel__status" role="status">Presiona "Activar c&#225;mara" para empezar.</p>
+        <div class="marcador">
+          <span id="numDedos" class="marcador__num">-</span>
+          <small class="marcador__label">dedos en total</small>
+        </div>
+        <p id="detalleManos" class="panel__detail">Sin manos a la vista.</p>
+        <p id="accionTexto" class="panel__action">Muestra una o m&#225;s manos. Con varias manos, la p&#225;gina reacciona cuando todas muestran el mismo n&#250;mero.</p>
+      </div>
+
+      <!-- Selector de modo -->
+      <div class="panel__section">
+        <label class="campo">Modo
+          <select id="selModo">
+            <option value="gestos">Gestos (temas y foto)</option>
+            <option value="dibujo">Dibujo con el dedo</option>
+            <option value="clasico">Captura cl&#225;sica (cada 2 s)</option>
+            <option value="quiz">Quiz de dedos</option>
+            <option value="vigilancia">Vigilancia</option>
+            <option value="sonrisa">Foto al sonre&#237;r</option>
+            <option value="ppt">Piedra, papel o tijera</option>
+            <option value="presentacion">Presentaci&#243;n con gestos</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- Controles por modo -->
+      <div data-modo="dibujo" hidden class="panel__section panel__section--mode botones">
+        <h2 class="panel__subtitle">Herramientas de dibujo</h2>
+        <label class="campo">Color <input type="color" id="inpColor" value="#ffffff">
+          <button id="btnColorAuto" type="button" class="btn btn--sm">Auto</button></label>
+        <label class="campo">Grosor <input type="range" id="inpGrosor" min="2" max="24" value="6"></label>
+        <div class="btn-row">
+          <button id="btnDeshacer" type="button" class="btn">Deshacer</button>
+          <button id="btnBorrar" type="button" class="btn btn--danger">Borrar dibujo</button>
+        </div>
+        <button id="btnPng" type="button" class="btn">Descargar solo trazos</button>
+        <button id="btnPngCam" type="button" class="btn">Descargar con c&#225;mara</button>
+      </div>
+
+      <div data-modo="clasico" hidden class="panel__section panel__section--mode botones">
+        <h2 class="panel__subtitle">Captura cl&#225;sica</h2>
+        <button id="btnClasico" type="button" class="btn btn--primary">Iniciar captura</button>
+        <p id="txtClasico" class="panel__meta">Fotos: 0/10</p>
+      </div>
+
+      <div data-modo="quiz" hidden class="panel__section panel__section--mode botones">
+        <h2 class="panel__subtitle">Quiz de dedos</h2>
+        <p id="txtPregunta" class="pregunta">-</p>
+        <p id="txtPuntos" class="panel__meta">Puntos: -</p>
+        <button id="btnPregunta" type="button" class="btn btn--primary">Nueva pregunta</button>
+      </div>
+
+      <div data-modo="vigilancia" hidden class="panel__section panel__section--mode botones">
+        <h2 class="panel__subtitle">Modo vigilancia</h2>
+        <button id="btnVig" type="button" class="btn btn--primary">Armar vigilancia</button>
+        <p id="txtVig" class="panel__meta">Desarmada.</p>
+      </div>
+
+      <div data-modo="sonrisa" hidden class="panel__section panel__section--mode botones">
+        <h2 class="panel__subtitle">Foto al sonre&#237;r</h2>
+        <p id="txtSonrisa" class="panel__meta">Sonr&#237;e para salir en la foto.</p>
+      </div>
+
+      <div data-modo="ppt" hidden class="panel__section panel__section--mode botones">
+        <h2 class="panel__subtitle">Piedra, papel o tijera</h2>
+        <button id="btnPpt" type="button" class="btn btn--primary">Jugar ronda</button>
+        <p id="txtPpt" class="pregunta">-</p>
+        <p id="txtPptPuntos" class="panel__meta">T&#250; 0 - Compu 0</p>
+      </div>
+
+      <div data-modo="presentacion" hidden class="panel__section panel__section--mode botones">
+        <h2 class="panel__subtitle">Presentaci&#243;n</h2>
+        <div id="diapo" class="diapo"></div>
+        <div class="btn-row">
+          <button id="btnAnt" type="button" class="btn">Anterior</button>
+          <button id="btnSig" type="button" class="btn btn--primary">Siguiente</button>
+        </div>
+      </div>
+
+      <!-- Configuracion general -->
+      <details class="panel__section panel__details" open>
+        <summary class="panel__summary">Configuraci&#243;n</summary>
+        <div class="panel__details-body">
+          <label class="campo">C&#225;mara <select id="selCamara"></select></label>
+          <button id="btnPantalla" type="button" class="btn">Pantalla completa</button>
+          <label class="campo campo--inline">
+            <input type="checkbox" id="chkEsqueleto" checked> Mostrar esqueleto
+          </label>
+          <p class="panel__meta">FPS: <span id="txtFps">-</span></p>
+        </div>
+      </details>
+
+      <!-- Guia de gestos -->
+      <details class="panel__section panel__details">
+        <summary class="panel__summary">Gu&#237;a de gestos</summary>
+        <div class="panel__details-body">
+          <h3 class="panel__subtitle">Modo gestos</h3>
+          <ul class="guia">
+            <li><b>0</b> pu&#241;o: pausa</li>
+            <li><b>1</b> dedo: borde azul</li>
+            <li><b>2</b> dedos: borde verde</li>
+            <li><b>3</b> dedos: borde naranja</li>
+            <li><b>4</b> dedos: borde rosa</li>
+            <li><b>5</b> dedos: foto de todos los rostros</li>
+          </ul>
+          <h3 class="panel__subtitle">Modo dibujo</h3>
+          <ul class="guia">
+            <li>Solo el <b>&#237;ndice</b> arriba: dibujar</li>
+            <li>Otro gesto: levantar el l&#225;piz</li>
+            <li><b>5</b> dedos (mantener): borrar todo</li>
+            <li><b>&#205;ndice + medio</b>: borrador</li>
+            <li><b>Pulgar + &#237;ndice</b> (forma de L): grosor</li>
+            <li>Cada persona dibuja con su propio color</li>
+          </ul>
+        </div>
+      </details>
+
+      <!-- Galeria de fotos -->
+      <div class="panel__section">
+        <div class="panel__section-head">
+          <h2 class="panel__subtitle">Fotos</h2>
+          <button id="btnZip" type="button" class="btn btn--sm btn--primary">Descargar ZIP</button>
+        </div>
+        <div id="galeria"><p class="vacio">A&#250;n no hay fotos. Abre la mano (5 dedos).</p></div>
+      </div>
+
+      <!-- Registro / bitacora -->
+      <details class="panel__section panel__details">
+        <summary class="panel__summary">Registro</summary>
+        <div class="panel__details-body">
+          <ul id="registro" class="registro"></ul>
+          <button id="btnCsv" type="button" class="btn">Exportar registro (CSV)</button>
+        </div>
+      </details>
+
+    </aside>
+  </main>
+
+  <!-- PIE -->
+  <footer class="pie">INFRAMEN &#8212; Desarrollo de Software</footer>
+
+  <!-- JSZip: crea el archivo .zip con las fotos -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
