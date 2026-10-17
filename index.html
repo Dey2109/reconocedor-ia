@@ -2,12 +2,20 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0c0c10">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="INFRAMEN IA">
   <meta name="description" content="Aplicación de reconocimiento de rostro y manos con inteligencia artificial — INFRAMEN, Desarrollo de Software.">
   <title>Reconocimiento de rostro y manos | INFRAMEN</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,7 +23,7 @@
   <!-- ENCABEZADO INSTITUCIONAL -->
   <header class="encabezado">
     <div class="encabezado__logo">
-      <img class="logo" src="logo.png" alt="Escudo INFRAMEN">
+      <img class="logo" src="logo.png" alt="Escudo INFRAMEN" width="160" height="160" loading="eager">
     </div>
     <div class="encabezado__info">
       <p class="encabezado__nombre">INSTITUTO NACIONAL "GENERAL FRANCISCO MENENDEZ"</p>
@@ -37,7 +45,7 @@
 
     <!-- VISOR (video + canvas) -->
     <section class="escenario">
-      <video id="video" autoplay playsinline muted></video>
+      <video id="video" autoplay playsinline webkit-playsinline muted></video>
       <canvas id="dibujo"></canvas>
       <canvas id="lienzo"></canvas>
       <button id="btnIniciar" type="button">Activar c&#225;mara</button>

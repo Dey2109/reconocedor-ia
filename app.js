@@ -128,6 +128,14 @@ async function encenderCamara(idCamara) {
   const escenario = document.querySelector(".escenario");
   escenario.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
   escenario.style.setProperty("--ratio", video.videoWidth / video.videoHeight);   // lo usa el CSS en pantalla completa
+
+  // Detectar si la cámara activa es trasera para no voltearla en espejo
+  const track = flujo.getVideoTracks()[0];
+  const settings = track?.getSettings ? track.getSettings() : {};
+  const label = (track?.label || "").toLowerCase();
+  const esTrasera = settings.facingMode === "environment" || label.includes("back") || label.includes("trasera") || label.includes("rear");
+  escenario.classList.toggle("escenario--trasera", esTrasera);
+
   trazos = []; lapices = [];   // al cambiar de cámara el canvas se reinicia
   await llenarCamaras();
 }
@@ -149,13 +157,16 @@ function dedosEstirados(puntos) {
 }
 
 // 8) TEXTO SOBRE EL CANVAS ------------------------------------------------
-// El canvas está volteado por CSS (espejo). Si escribiéramos texto normal se vería al revés,
-// así que lo volteamos otra vez con scale(-1, 1) antes de escribir.
+// Si es cámara frontal está en espejo por CSS, así que volteamos el texto con scale(-1, 1).
+// Si es cámara trasera, escribimos en orientación normal.
 function dibujarEtiqueta(texto, x, y, fondo) {
   texto = texto.toUpperCase();   // el canvas NO hereda el CSS: hay que pasar a mayúsculas aquí
+  const esTrasera = document.querySelector(".escenario")?.classList.contains("escenario--trasera");
   ctx.save();
   ctx.translate(x, y);
-  ctx.scale(-1, 1);
+  if (!esTrasera) {
+    ctx.scale(-1, 1);
+  }
   ctx.font = "20px Oxygene, 'Segoe UI', sans-serif";   // misma fuente que la página
   const ancho = ctx.measureText(texto).width + 14;
   ctx.fillStyle = fondo;
@@ -474,8 +485,25 @@ selModo.addEventListener("change", () => {
 
 btnPantalla.addEventListener("click", () => {
   const caja = document.querySelector(".escenario");
-  if (document.fullscreenElement) document.exitFullscreen();
-  else caja.requestFullscreen?.();
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+  } else if (caja.classList.contains("is-fullscreen")) {
+    caja.classList.remove("is-fullscreen");
+  } else {
+    const req = caja.requestFullscreen || caja.webkitRequestFullscreen;
+    if (req) {
+      req.call(caja).catch(() => caja.classList.add("is-fullscreen"));
+    } else {
+      // Fallback para iPhone / navegadores móviles sin Fullscreen API en divs
+      caja.classList.add("is-fullscreen");
+    }
+  }
+});
+
+// En celulares, salir de pantalla completa tocando el visor o tecla Escape
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.querySelector(".escenario")?.classList.remove("is-fullscreen");
 });
 
 // 11g) VIGILANCIA ------------------------------------------------------------------
@@ -631,16 +659,21 @@ function procesarPresentacion(manos) {
 
 // 11k) SELECTOR DE CÁMARA -------------------------------------------------------------------
 async function llenarCamaras() {
-  const lista = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput");
-  const actual = video.srcObject.getVideoTracks()[0].getSettings().deviceId;
-  selCamara.innerHTML = "";
-  lista.forEach((d, i) => {
-    const o = document.createElement("option");
-    o.value = d.deviceId;
-    o.textContent = d.label || `Cámara ${i + 1}`;
-    o.selected = d.deviceId === actual;
-    selCamara.appendChild(o);
-  });
+  if (!navigator.mediaDevices?.enumerateDevices) return;
+  try {
+    const lista = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput");
+    const actual = video.srcObject?.getVideoTracks?.()[0]?.getSettings?.()?.deviceId ?? "";
+    selCamara.innerHTML = "";
+    lista.forEach((d, i) => {
+      const o = document.createElement("option");
+      o.value = d.deviceId;
+      o.textContent = d.label || `Cámara ${i + 1}`;
+      o.selected = d.deviceId === actual;
+      selCamara.appendChild(o);
+    });
+  } catch (e) {
+    console.warn("No se pudo enumerar cámaras:", e);
+  }
 }
 selCamara.addEventListener("change", () => encenderCamara(selCamara.value));
 
