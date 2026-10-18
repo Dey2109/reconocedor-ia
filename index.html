@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="INFRAMEN IA">
   <meta name="description" content="Aplicación de reconocimiento de rostro y manos con inteligencia artificial — INFRAMEN, Desarrollo de Software.">
-  <title>Reconocimiento de rostro y manos | INFRAMEN</title>
+  <title>1-2 Desarrollo de Software | INFRAMEN</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -40,6 +40,34 @@
     <span>Clase III: "Reconocimiento de rostro"</span>
   </div>
 
+  <!-- TITULO GRANDE DEL GRUPO (edita el texto aqui) -->
+  <section class="titulo-grado">
+    <h1>1-2 DESARROLLO DE SOFTWARE</h1>
+    <p>Reconocimiento de rostros y manos</p>
+  </section>
+
+  <!-- PESTANAS DE MODO: controlan el select oculto de abajo -->
+  <nav class="modos" aria-label="Modos de uso">
+    <button type="button" data-modo-tab="gestos" class="activo">Gestos</button>
+    <button type="button" data-modo-tab="dibujo">Dibujo</button>
+    <button type="button" data-modo-tab="clasico">Captura clásica</button>
+    <button type="button" data-modo-tab="quiz">Quiz de dedos</button>
+    <button type="button" data-modo-tab="vigilancia">Vigilancia</button>
+    <button type="button" data-modo-tab="sonrisa">Sonrisa</button>
+    <button type="button" data-modo-tab="ppt">Piedra, papel, tijera</button>
+    <button type="button" data-modo-tab="presentacion">Presentación</button>
+  </nav>
+  <select id="selModo" class="oculto" aria-hidden="true" tabindex="-1">
+    <option value="gestos">Gestos</option>
+    <option value="dibujo">Dibujo</option>
+    <option value="clasico">Captura clásica</option>
+    <option value="quiz">Quiz de dedos</option>
+    <option value="vigilancia">Vigilancia</option>
+    <option value="sonrisa">Sonrisa</option>
+    <option value="ppt">Piedra, papel, tijera</option>
+    <option value="presentacion">Presentación</option>
+  </select>
+
   <!-- CONTENIDO PRINCIPAL -->
   <main class="app">
 
@@ -56,7 +84,7 @@
 
       <!-- Estado y contador -->
       <div class="panel__header">
-        <h1 class="panel__title">Rostros y manos</h1>
+        <h2 class="panel__title">Rostros y manos</h2>
         <p id="estado" class="panel__status" role="status">Presiona "Activar c&#225;mara" para empezar.</p>
         <div class="marcador">
           <span id="numDedos" class="marcador__num">-</span>
@@ -64,22 +92,6 @@
         </div>
         <p id="detalleManos" class="panel__detail">Sin manos a la vista.</p>
         <p id="accionTexto" class="panel__action">Muestra una o m&#225;s manos. Con varias manos, la p&#225;gina reacciona cuando todas muestran el mismo n&#250;mero.</p>
-      </div>
-
-      <!-- Selector de modo -->
-      <div class="panel__section">
-        <label class="campo">Modo
-          <select id="selModo">
-            <option value="gestos">Gestos (temas y foto)</option>
-            <option value="dibujo">Dibujo con el dedo</option>
-            <option value="clasico">Captura cl&#225;sica (cada 2 s)</option>
-            <option value="quiz">Quiz de dedos</option>
-            <option value="vigilancia">Vigilancia</option>
-            <option value="sonrisa">Foto al sonre&#237;r</option>
-            <option value="ppt">Piedra, papel o tijera</option>
-            <option value="presentacion">Presentaci&#243;n con gestos</option>
-          </select>
-        </label>
       </div>
 
       <!-- Controles por modo -->
@@ -149,10 +161,34 @@
         </div>
       </details>
 
+    </aside>
+  </main>
+
+  <!-- TARJETAS: fotos, registro y guia (fuera del panel para que no se amontone) -->
+  <section class="extras">
+      <!-- Galeria de fotos -->
+      <article class="tarjeta">
+        <div class="panel__section-head">
+          <h2 class="panel__subtitle">Fotos</h2>
+          <button id="btnZip" type="button" class="btn btn--sm btn--primary">Descargar ZIP</button>
+        </div>
+        <div id="galeria"><p class="vacio">A&#250;n no hay fotos. Abre la mano (5 dedos).</p></div>
+      </article>
+
+      <!-- Registro / bitacora -->
+      <article class="tarjeta">
+        <h2 class="panel__subtitle">Registro</h2>
+        <div>
+          <ul id="registro" class="registro"></ul>
+          <button id="btnCsv" type="button" class="btn">Exportar registro (CSV)</button>
+        </div>
+      </article>
+
+
       <!-- Guia de gestos -->
-      <details class="panel__section panel__details">
-        <summary class="panel__summary">Gu&#237;a de gestos</summary>
-        <div class="panel__details-body">
+      <article class="tarjeta">
+        <h2 class="panel__subtitle">Gu&#237;a de gestos</h2>
+        <div>
           <h3 class="panel__subtitle">Modo gestos</h3>
           <ul class="guia">
             <li><b>0</b> pu&#241;o: pausa</li>
@@ -172,28 +208,11 @@
             <li>Cada persona dibuja con su propio color</li>
           </ul>
         </div>
-      </details>
+      </article>
 
-      <!-- Galeria de fotos -->
-      <div class="panel__section">
-        <div class="panel__section-head">
-          <h2 class="panel__subtitle">Fotos</h2>
-          <button id="btnZip" type="button" class="btn btn--sm btn--primary">Descargar ZIP</button>
-        </div>
-        <div id="galeria"><p class="vacio">A&#250;n no hay fotos. Abre la mano (5 dedos).</p></div>
-      </div>
 
-      <!-- Registro / bitacora -->
-      <details class="panel__section panel__details">
-        <summary class="panel__summary">Registro</summary>
-        <div class="panel__details-body">
-          <ul id="registro" class="registro"></ul>
-          <button id="btnCsv" type="button" class="btn">Exportar registro (CSV)</button>
-        </div>
-      </details>
+  </section>
 
-    </aside>
-  </main>
 
   <!-- PIE -->
   <footer class="pie">INFRAMEN &#8212; Desarrollo de Software</footer>

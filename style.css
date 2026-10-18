@@ -1179,3 +1179,75 @@ input[type="checkbox"] {
     animation: none !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ORDEN: título grande, pestañas de modo y tarjetas inferiores
+   ═══════════════════════════════════════════════════════════════════════ */
+.oculto { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+/* Título grande del grupo */
+.titulo-grado {
+  width: var(--ancho);
+  margin: 1.25rem auto 0;
+  padding: clamp(1rem, 3vw, 1.8rem) 1rem;
+  text-align: center;
+  background: linear-gradient(135deg, #160a0c 0%, #100e10 60%, #0e120f 100%);
+  border: 1px solid var(--borde-accent);
+  border-radius: var(--radius);
+  box-shadow: var(--sombra);
+}
+.titulo-grado h1 {
+  font-family: var(--fuente-display);
+  font-size: clamp(1.4rem, .8rem + 4.2vw, 3.2rem);
+  line-height: 1.1;
+  letter-spacing: .05em;
+  color: var(--verde-texto);
+  text-shadow: 0 0 18px rgba(92, 255, 138, .25);
+}
+.titulo-grado p { margin-top: .5rem; color: var(--texto-dim); font-size: clamp(.7rem, .6rem + .9vw, 1rem); text-transform: uppercase; letter-spacing: .08em; }
+
+/* Pestañas: una fila ordenada de botones iguales */
+.modos {
+  width: var(--ancho);
+  margin: 1rem auto 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: .5rem;
+}
+.modos button {
+  min-height: 46px;
+  padding: .4rem .6rem;
+  font: 700 .8rem var(--fuente);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  background: var(--bg-surface);
+  color: var(--texto);
+  border: 1px solid var(--borde);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.modos button:hover:not(.activo) { background: var(--bg-hover); border-color: var(--borde-hover); }
+.modos button.activo { background: linear-gradient(135deg, var(--rojo), #d63842); border-color: var(--rojo); color: #fff; box-shadow: 0 4px 18px var(--rojo-glow); }
+.modos button:focus-visible { outline: 2px solid var(--verde-texto); outline-offset: 2px; }
+
+/* Tarjetas inferiores (Fotos / Registro / Guía) */
+.extras {
+  width: var(--ancho);
+  margin: 0 auto 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+.tarjeta {
+  min-width: 0;
+  padding: 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--borde);
+  border-top: 3px solid var(--acento);
+  border-radius: var(--radius);
+  box-shadow: var(--sombra);
+}
+.tarjeta > .panel__subtitle, .tarjeta .panel__section-head { margin-bottom: .75rem; }
+.tarjeta .registro { max-height: 240px; }
