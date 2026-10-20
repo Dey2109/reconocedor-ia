@@ -2,7 +2,6 @@
 //  app.js  –  Varios rostros + varias manos + contador de dedos + dibujo
 //  Librería: MediaPipe Tasks Vision (Google), cargada desde un CDN.
 // =====================================================================
-
 // ═══════════════════════════════════════════════════════════════════════
 // GUÍA RÁPIDA PARA EXPONER ESTE ARCHIVO
 // ═══════════════════════════════════════════════════════════════════════
