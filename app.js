@@ -177,13 +177,18 @@ async function crearDetectores() {
 //   - Los canvas se igualan al tamaño REAL del video: si no, los dibujos saldrían desplazados.
 //   - La cámara frontal se muestra en espejo (como un selfie); la trasera no.
 async function encenderCamara(idCamara) {
-  video.srcObject?.getTracks().forEach(t => t.stop());   // apaga la cámara anterior
+  const anterior = video.srcObject;   // guardamos la cámara anterior: solo se apaga si la nueva abre bien
   // facingMode "user" = cámara frontal en el celular. "ideal" = pide ese tamaño, pero acepta otro.
   const flujo = await navigator.mediaDevices.getUserMedia({
     video: { ...(idCamara ? { deviceId: { exact: idCamara } } : { facingMode: "user" }), width: { ideal: 640 }, height: { ideal: 480 } }
   });
+  anterior?.getTracks().forEach(t => t.stop());   // la nueva funcionó: ahora sí apagamos la anterior
   video.srcObject = flujo;
   await video.play();
+  // Algunas cámaras USB tardan en entregar su primer cuadro. Si seguimos sin esperar, videoWidth
+  // vale 0, los canvas quedan de tamaño 0 y NO se detecta ni se dibuja nada (parece que "no reconoce").
+  for (let i = 0; i < 50 && !video.videoWidth; i++) await new Promise(r => setTimeout(r, 100));
+  if (!video.videoWidth) throw new Error("La cámara no entregó imagen");
   // Los dos canvas deben tener la MISMA resolución que el video, o todo saldría desplazado.
   lienzo.width = dibujo.width = video.videoWidth;
   lienzo.height = dibujo.height = video.videoHeight;
@@ -196,6 +201,7 @@ async function encenderCamara(idCamara) {
   // Detectar si la cámara activa es trasera para no voltearla en espejo
   const track = flujo.getVideoTracks()[0];
   const settings = track?.getSettings ? track.getSettings() : {};
+  console.log("Cámara activa:", track?.label, settings);   // aparece en la consola (F12) para diagnosticar
   const label = (track?.label || "").toLowerCase();
   const esTrasera = settings.facingMode === "environment" || label.includes("back") || label.includes("trasera") || label.includes("rear");
   escenario.classList.toggle("escenario--trasera", esTrasera);
@@ -814,7 +820,17 @@ async function llenarCamaras() {
     console.warn("No se pudo enumerar cámaras:", e);
   }
 }
-selCamara.addEventListener("change", () => encenderCamara(selCamara.value));
+// Si la cámara elegida no abre (otra aplicación la está usando, falta permiso, etc.) mostramos
+// el motivo y dejamos funcionando la cámara anterior, en vez de quedar con el video congelado.
+selCamara.addEventListener("change", async () => {
+  try {
+    await encenderCamara(selCamara.value);
+  } catch (error) {
+    console.error(error);
+    estado.textContent = `No se pudo abrir esa cámara (${error.name}). ¿La usa otra aplicación?`;
+    await llenarCamaras();   // devuelve el selector a la cámara que sigue activa
+  }
+});
 
 // 12) BUCLE PRINCIPAL ------------------------------------------------------
 // BUCLE PRINCIPAL: se repite solo con requestAnimationFrame, que pide al navegador volver a
@@ -825,7 +841,8 @@ selCamara.addEventListener("change", () => encenderCamara(selCamara.value));
 //   2) la IA detecta rostros y manos   3) se limpia el canvas y se dibuja lo detectado
 //   4) se actualiza el panel (total de dedos, estado)   5) se llama a la función del modo activo
 function bucle() {
-  if (video.currentTime !== ultimoTiempoVideo) {
+  // readyState >= 2 y videoWidth > 0 = el video ya tiene un cuadro con imagen (evita analizar un video vacío)
+  if (video.readyState >= 2 && video.videoWidth > 0 && video.currentTime !== ultimoTiempoVideo) {
     ultimoTiempoVideo = video.currentTime;
     const ahora = performance.now();   // MediaPipe exige una marca de tiempo creciente
     fps.n++;                           // contador de FPS: se muestra cada segundo
