@@ -2,6 +2,7 @@
 //  app.js  –  Varios rostros + varias manos + contador de dedos + dibujo
 //  Librería: MediaPipe Tasks Vision (Google), cargada desde un CDN.
 // =====================================================================
+
 // ═══════════════════════════════════════════════════════════════════════
 // GUÍA RÁPIDA PARA EXPONER ESTE ARCHIVO
 // ═══════════════════════════════════════════════════════════════════════
@@ -75,7 +76,6 @@ const ESPERA_FOTO_MS = 2000; // mínimo 2 s entre fotos
 
 // Modo dibujo
 const COLORES_PINCEL = ["#ffffff", "#ff4d4d", "#4da3ff", "#43d17a", "#f5d547", "#c77dff"]; // 1 por mano
-const GROSOR = 6;
 const SUAVIZADO = 0.45;      // 0 a 1: más bajo = trazo más suave pero con retraso
 const RADIO_EMPAREJAR = 120; // px: máximo que se mueve un dedo entre frames para ser "el mismo lápiz"
 const FRAMES_BORRAR = 25;    // frames con 5 dedos para borrar todo (~0.8 s)
@@ -130,7 +130,6 @@ let ultimoTiempoVideo = -1;
 let cajasRostro = [];        // un recuadro (con padding) por cada rostro del frame actual
 let conteoCandidato = -1, repeticiones = 0, conteoConfirmado = -1;
 let ultimaFoto = 0;
-let modoDibujo = false;
 let lapices = [];            // lápices activos: [{x, y, color}] (uno por mano que dibuja)
 let framesPalma = 0;         // frames seguidos con alguna mano abierta (para borrar)
 
@@ -445,12 +444,14 @@ function bajar(url, nombre) {            // descarga cualquier URL como archivo
   enlace.href = url;
   enlace.download = nombre;
   enlace.click();
+  if (url.startsWith("blob:")) setTimeout(() => URL.revokeObjectURL(url), 10000);   // libera memoria
 }
 
 // Exportar el registro a CSV (texto separado por comas, abre en Excel). Las comillas dobles
 // dentro del texto se duplican, que es la regla del formato CSV. "\ufeff" al inicio hace que
 // Excel lea bien las tildes.
 btnCsv.addEventListener("click", () => {
+  if (registros.length === 0) return mostrarAviso("El registro está vacío.");
   const filas = registros.map(r => `"${r.fecha}","${r.evento.replace(/"/g, '""')}"`);
   // \ufeff = marca para que Excel lea bien las tildes
   const csv = "\ufeffFecha,Evento\n" + filas.join("\n");
@@ -460,7 +461,7 @@ btnCsv.addEventListener("click", () => {
 // Descargar todas las fotos en un solo ZIP. JSZip arma el archivo en la memoria del navegador;
 // "await" espera a que termine de comprimir antes de descargarlo.
 btnZip.addEventListener("click", async () => {
-  if (fotos.length === 0) return;
+  if (fotos.length === 0) return mostrarAviso("Aún no hay fotos para descargar.");
   const zip = new JSZip();   // JSZip se carga con un <script> en index.html
   fotos.forEach(f => zip.file(f.nombre, f.url.split(",")[1], { base64: true }));
   bajar(URL.createObjectURL(await zip.generateAsync({ type: "blob" })), "fotos.zip");
@@ -493,6 +494,7 @@ inpGrosor.addEventListener("input", () => { grosor = Number(inpGrosor.value); })
 // Guarda el dibujo como PNG. Se arma un canvas nuevo, se voltea en espejo (para que quede igual
 // a lo que se ve en pantalla) y se pinta encima del video o de un fondo oscuro.
 function descargarDibujo(conCamara) {
+  if (!video.videoWidth) return mostrarAviso("Activa la cámara primero.");
   const c = document.createElement("canvas");
   c.width = dibujo.width;
   c.height = dibujo.height;
@@ -596,7 +598,6 @@ const TEXTOS_MODO = {
 // controles de ese modo (los elementos con data-modo), y se apagan funciones del modo anterior.
 selModo.addEventListener("change", () => {
   modo = selModo.value;
-  modoDibujo = modo === "dibujo";
   lapices = [];
   conteoConfirmado = -1;
   document.querySelectorAll("[data-modo]").forEach(s => { s.hidden = s.dataset.modo !== modo; });
@@ -700,8 +701,15 @@ async function crearLandmarker() {
     baseOptions: { modelAssetPath: MODELO_LANDMARKS, delegate },
     runningMode: "VIDEO", numFaces: 4, outputFaceBlendshapes: true
   });
-  try { landmarker = await crear("GPU"); } catch { landmarker = await crear("CPU"); }
-  txtSonrisa.textContent = "Sonríe para salir en la foto.";
+  try {
+    try { landmarker = await crear("GPU"); } catch { landmarker = await crear("CPU"); }
+    txtSonrisa.textContent = "Sonríe para salir en la foto.";
+  } catch (error) {
+    console.error(error);
+    txtSonrisa.textContent = "No se pudo cargar el modelo. Revisa tu internet y vuelve a elegir este modo.";
+  } finally {
+    cargandoLM = false;   // permite reintentar al volver a entrar al modo
+  }
 }
 // Calcula la sonrisa como el promedio de mouthSmileLeft y mouthSmileRight. Si pasa de 0.5 durante
 // 8 cuadros seguidos (para ignorar gestos pasajeros), toma la foto de esa persona.
@@ -826,7 +834,7 @@ selCamara.addEventListener("change", async () => {
     await encenderCamara(selCamara.value);
   } catch (error) {
     console.error(error);
-    estado.textContent = `No se pudo abrir esa cámara (${error.name}). ¿La usa otra aplicación?`;
+    mostrarAviso(`No se pudo abrir esa cámara (${error.name}). ¿La usa otra aplicación?`);
     await llenarCamaras();   // devuelve el selector a la cámara que sigue activa
   }
 });
@@ -888,7 +896,10 @@ function bucle() {
     // Registro: solo anotamos un cambio de cantidad de rostros si se mantiene ~15 frames (evita spam)
     rostrosEstables = (r === rostrosRegistrados) ? 0 : rostrosEstables + 1;
     if (rostrosEstables >= 15) { rostrosRegistrados = r; rostrosEstables = 0; registrar(`${r} rostro(s) a la vista`); }
-    estado.textContent = `${r} ${r === 1 ? "rostro" : "rostros"} - ${h} ${h === 1 ? "mano" : "manos"}`;
+    // Si hay un aviso reciente (ej. error de cámara) NO lo pisamos con el conteo
+    if (performance.now() > avisoHasta) {
+      estado.textContent = `${r} ${r === 1 ? "rostro" : "rostros"} - ${h} ${h === 1 ? "mano" : "manos"}`;
+    }
 
     // ---- Qué hacemos según el modo ----
     ultimasManos = manos;   // lo usa piedra-papel-tijera cuando termina la cuenta regresiva
@@ -921,12 +932,27 @@ btnIniciar.addEventListener("click", async () => {
   }
 });
 
+// 13b) AVISOS TEMPORALES
+// El bucle reescribe "estado" en cada cuadro; sin esto, un mensaje de error desaparecía al instante.
+// mostrarAviso lo deja visible unos segundos y el bucle respeta ese tiempo (avisoHasta).
+let avisoHasta = 0;
+function mostrarAviso(texto, ms = 5000) {
+  avisoHasta = performance.now() + ms;
+  estado.textContent = texto;
+}
+
 // 14) PESTAÑAS DE MODO: botones grandes que controlan el <select> oculto.
 // Así el resto del código (que ya escucha el select) no cambia en nada.
 document.querySelectorAll("[data-modo-tab]").forEach(boton => {
   boton.addEventListener("click", () => {
     selModo.value = boton.dataset.modoTab;
     selModo.dispatchEvent(new Event("change"));
-    document.querySelectorAll("[data-modo-tab]").forEach(b => b.classList.toggle("activo", b === boton));
+    document.querySelectorAll("[data-modo-tab]").forEach(b => {
+      b.classList.toggle("activo", b === boton);
+      b.setAttribute("aria-pressed", b === boton);   // los lectores de pantalla anuncian cuál está activa
+    });
   });
 });
+
+// Estado inicial de accesibilidad: la pestaña "Gestos" arranca activa
+document.querySelectorAll("[data-modo-tab]").forEach(b => b.setAttribute("aria-pressed", b.classList.contains("activo")));

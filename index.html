@@ -42,7 +42,7 @@
 
   <!-- TITULO GRANDE DEL GRUPO (edita el texto aqui) -->
   <section class="titulo-grado">
-    <h1>1-2 -- DESARROLLO DE SOFTWARE</h1>
+    <h1>1-2 DESARROLLO DE SOFTWARE</h1>
     <p>Reconocimiento de rostros y manos</p>
   </section>
 
@@ -97,8 +97,7 @@
       <!-- Controles por modo -->
       <div data-modo="dibujo" hidden class="panel__section panel__section--mode botones">
         <h2 class="panel__subtitle">Herramientas de dibujo</h2>
-        <label class="campo">Color <input type="color" id="inpColor" value="#ffffff">
-          <button id="btnColorAuto" type="button" class="btn btn--sm">Auto</button></label>
+        <div class="campo"><label for="inpColor">Color</label> <input type="color" id="inpColor" value="#ffffff"> <button id="btnColorAuto" type="button" class="btn btn--sm">Auto</button></div>
         <label class="campo">Grosor <input type="range" id="inpGrosor" min="2" max="24" value="6"></label>
         <div class="btn-row">
           <button id="btnDeshacer" type="button" class="btn">Deshacer</button>

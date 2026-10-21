@@ -1,3 +1,27 @@
+/* ÍNDICE DE ESTE ARCHIVO
+    1. FUENTE PERSONALIZADA
+    2. VARIABLES DE DISEÑO
+    3. RESET Y BASE
+    4. ENCABEZADO INSTITUCIONAL
+    5. FRANJA (periodo / clase)
+    6. LAYOUT PRINCIPAL  (video | panel)
+    7. ESCENARIO (video + canvas)
+    8. PANEL LATERAL
+    9. BOTONES
+   10. FORMULARIOS (select, input, checkbox)
+   11. PREGUNTA (quiz / PPT)
+   12. GUÍA DE GESTOS
+   13. GALERÍA DE FOTOS
+   14. REGISTRO (bitácora)
+   15. DIAPOSITIVAS (presentación)
+   16. PIE DE PÁGINA
+   17. PANTALLA COMPLETA (Soporte nativo + Webkit + Fallback iPhone)
+   18. UTILIDADES
+   19. RESPONSIVE DESIGN PARA MÓVILES Y PANTALLAS
+   20. ORDEN: título grande, pestañas de modo y tarjetas inferiores
+   21. PULIDO FINAL: foco visible, selección, títulos y pestañas en móvil
+   (busca el número o el título para ir directo a cada sección) */
+
 /* ═══════════════════════════════════════════════════════════════════════
    FUENTE PERSONALIZADA
    ═══════════════════════════════════════════════════════════════════════ */
@@ -1251,3 +1275,25 @@ input[type="checkbox"] {
 }
 .tarjeta > .panel__subtitle, .tarjeta .panel__section-head { margin-bottom: .75rem; }
 .tarjeta .registro { max-height: 240px; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PULIDO FINAL: foco visible, selección, títulos y pestañas en móvil
+   ═══════════════════════════════════════════════════════════════════════ */
+html { scroll-behavior: smooth; }
+::selection { background: var(--acento); color: #fff; }
+h1, h2, h3 { text-wrap: balance; }                       /* títulos sin una palabra suelta en la última línea */
+a:focus-visible, button:focus-visible, select:focus-visible,
+input:focus-visible, summary:focus-visible { outline: 2px solid var(--verde-texto); outline-offset: 2px; }
+.modos button[aria-pressed="true"] { background: linear-gradient(135deg, var(--rojo), #d63842); border-color: var(--rojo); color: #fff; }
+.registro, .tarjeta { scrollbar-width: thin; scrollbar-color: var(--borde-hover) transparent; }
+.tarjeta { transition: border-color var(--dur) var(--ease); }
+.tarjeta:hover { border-color: var(--borde-hover); }
+@media (max-width: 480px) {                              /* en celular: pestañas en 2 columnas parejas */
+  .modos { grid-template-columns: repeat(2, 1fr); }
+  .titulo-grado h1 { letter-spacing: .02em; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
