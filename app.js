@@ -51,6 +51,8 @@ import {
   FaceDetector,    // detector de rostros (detecta TODOS los que haya)
   FaceLandmarker,  // puntos del rostro + expresiones (sirve para detectar la sonrisa)
   HandLandmarker,  // detector de manos (21 puntos por mano)
+  GestureRecognizer, // reconoce gestos listos: pulgar arriba, paz, mano abierta...
+  PoseLandmarker,    // detector de cuerpo completo: 33 puntos (hombros, codos, muñecas, caderas...)
   DrawingUtils     // ayudante para dibujar puntos y líneas
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 
@@ -592,7 +594,12 @@ const TEXTOS_MODO = {
   vigilancia: "Vigilancia: arma el modo; suena una alarma si alguien aparece.",
   sonrisa: "Sonrisa: sonríe unos instantes y se toma la foto.",
   ppt: "Piedra (puño), papel (mano abierta) o tijera (índice + medio).",
-  presentacion: "Presentación: 1 dedo = siguiente, 2 = anterior, 5 = inicio."
+  presentacion: "Presentación: 1 dedo = siguiente, 2 = anterior, 5 = inicio.",
+  gestosia: "Gestos con IA: pulgar arriba, paz, mano abierta, te quiero...",
+  emociones: "Emociones: feliz, sorprendido, enojado, triste o neutro.",
+  filtros: "Filtros AR: elige gafas, sombrero, nariz o alacrán.",
+  pose: "Cuerpo completo: sube los dos brazos por encima de la cabeza y bájalos para contar.",
+  senas: "Señas básicas: mantén una seña un momento para escribir su letra."
 };
 // Al cambiar de modo: se reinician los lápices y el gesto confirmado, se muestran solo los
 // controles de ese modo (los elementos con data-modo), y se apagan funciones del modo anterior.
@@ -604,7 +611,9 @@ selModo.addEventListener("change", () => {
   if (modo !== "clasico" && clasico.activo) detenerClasico("Detenido al cambiar de modo.");
   if (modo === "quiz") nuevaPregunta();
   if (modo !== "vigilancia" && vig.armado) desarmar();
-  if (modo === "sonrisa") crearLandmarker();
+  if (["sonrisa", "emociones", "filtros"].includes(modo)) crearLandmarker();   // los 3 comparten el mismo modelo de rostro
+  if (modo === "gestosia") crearReconocedor();
+  if (modo === "pose") crearPose();
   if (modo === "presentacion") mostrarDiapo();
   accionTexto.textContent = TEXTOS_MODO[modo];
   registrar(`Modo: ${selModo.selectedOptions[0].textContent}`);
@@ -868,8 +877,10 @@ function bucle() {
       const y2 = Math.min(b.originY + b.height + PADDING, lienzo.height);
       ctx.strokeStyle = "#ff3b3b";
       ctx.lineWidth = 3;
-      ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+      if (modo !== "filtros") {   // en el modo de filtros los recuadros estorban
+        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
       dibujarEtiqueta(`Persona ${i + 1}`, (x1 + x2) / 2, y1, "#7a0e12");
+      }
       return { x: x1, y: y1, ancho: x2 - x1, alto: y2 - y1 };
     });
 
@@ -893,6 +904,7 @@ function bucle() {
       ? manos.map((m, i) => `Mano ${i + 1}: ${m.n}`).join(" - ")
       : "Sin manos a la vista.";
     const r = cajasRostro.length, h = manos.length;
+    muestrearEstadisticas(r, manos);   // alimenta el panel de estadísticas (1 muestra por segundo)
     // Registro: solo anotamos un cambio de cantidad de rostros si se mantiene ~15 frames (evita spam)
     rostrosEstables = (r === rostrosRegistrados) ? 0 : rostrosEstables + 1;
     if (rostrosEstables >= 15) { rostrosRegistrados = r; rostrosEstables = 0; registrar(`${r} rostro(s) a la vista`); }
@@ -909,6 +921,11 @@ function bucle() {
     else if (modo === "vigilancia") procesarVigilancia();
     else if (modo === "sonrisa") procesarSonrisa();
     else if (modo === "presentacion") procesarPresentacion(manos);
+    else if (modo === "gestosia") procesarGestosIA();
+    else if (modo === "emociones") procesarEmociones();
+    else if (modo === "filtros") procesarFiltros();
+    else if (modo === "pose") procesarPose();
+    else if (modo === "senas") procesarSenas(manos);
     else procesarGestos(manos);
   }
   requestAnimationFrame(bucle);
@@ -930,6 +947,287 @@ btnIniciar.addEventListener("click", async () => {
     estado.textContent = "No se pudo iniciar: revisa el permiso de la cámara y que uses un servidor local.";
     btnIniciar.disabled = false;
   }
+});
+
+// 13a) GESTOS CON IA, EMOCIONES Y FILTROS AR ------------------------------------------
+// Elementos del panel de estos modos (se buscan una sola vez)
+const txtGestoIA = $("txtGestoIA"), txtEmocion = $("txtEmocion");
+const MODELO_GESTOS =
+  "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task";
+
+// --- Gestos con IA: GestureRecognizer ya trae entrenados 7 gestos (no hay que contar dedos) ---
+let reconocedor = null, cargandoGR = false;
+async function crearReconocedor() {
+  if (reconocedor || cargandoGR) return;
+  cargandoGR = true;
+  txtGestoIA.textContent = "Cargando modelo...";
+  const crear = (delegate) => GestureRecognizer.createFromOptions(vision, {
+    baseOptions: { modelAssetPath: MODELO_GESTOS, delegate },
+    runningMode: "VIDEO", numHands: MAX_MANOS
+  });
+  try {
+    try { reconocedor = await crear("GPU"); } catch { reconocedor = await crear("CPU"); }
+    txtGestoIA.textContent = "Muestra una mano...";
+  } catch (error) {
+    console.error(error);
+    txtGestoIA.textContent = "No se pudo cargar el modelo. Revisa tu internet y vuelve a elegir este modo.";
+  } finally { cargandoGR = false; }
+}
+const NOMBRES_GESTO = {            // nombre en inglés del modelo -> [emoji, texto en español]
+  Thumb_Up: ["👍", "ME GUSTA"], Thumb_Down: ["👎", "NO ME GUSTA"], Victory: ["✌️", "PAZ"],
+  Open_Palm: ["🖐️", "HOLA"], Closed_Fist: ["✊", "PUÑO"], Pointing_Up: ["☝️", "ARRIBA"], ILoveYou: ["🤟", "TE QUIERO"]
+};
+function procesarGestosIA() {
+  if (!reconocedor) return;
+  const res = reconocedor.recognizeForVideo(video, performance.now());
+  const vistos = [];
+  res.gestures.forEach((g, i) => {
+    const mejor = g[0], info = NOMBRES_GESTO[mejor?.categoryName];
+    if (!info || mejor.score < 0.6) return;            // ignora "None" y las dudas del modelo
+    vistos.push(`${info[0]} ${info[1]}`);
+    const muneca = res.landmarks[i][0];
+    dibujarEtiqueta(info[1], muneca.x * lienzo.width, muneca.y * lienzo.height + 70, "#7a0e12");
+  });
+  txtGestoIA.textContent = vistos.length ? vistos.join("\n") : "Muestra una mano...";
+}
+
+// --- Rostros con puntos y expresiones (lo usan Emociones y Filtros). Reutiliza el modelo de "Sonrisa" ---
+function analizarRostros() {
+  if (!landmarker) return [];
+  const res = landmarker.detectForVideo(video, performance.now());
+  return res.faceLandmarks.map((pts, i) => {
+    const cat = res.faceBlendshapes?.[i]?.categories ?? [];
+    return {
+      P: (k) => ({ x: pts[k].x * lienzo.width, y: pts[k].y * lienzo.height }),   // punto k en píxeles
+      val: (n) => cat.find(c => c.categoryName === n)?.score ?? 0                // expresión n, de 0 a 1
+    };
+  });
+}
+
+// --- Emociones: reglas simples sobre las expresiones (son APROXIMADAS: se pueden afinar) ---
+const EMOJI_EMOCION = { FELIZ: "😀", SORPRENDIDO: "😮", ENOJADO: "😠", TRISTE: "😢", NEUTRO: "😐" };
+function clasificarEmocion(val) {
+  const sonrisa = (val("mouthSmileLeft") + val("mouthSmileRight")) / 2;
+  const cejasBajas = (val("browDownLeft") + val("browDownRight")) / 2;
+  const boca = val("jawOpen"), cejasAltas = val("browInnerUp");
+  const ceño = (val("mouthFrownLeft") + val("mouthFrownRight")) / 2;
+  if (sonrisa > 0.5) return ["FELIZ", sonrisa];
+  if (boca > 0.35 && cejasAltas > 0.3) return ["SORPRENDIDO", Math.min(1, boca + 0.3)];
+  if (cejasBajas > 0.45) return ["ENOJADO", cejasBajas];
+  if (ceño > 0.35) return ["TRISTE", ceño];
+  return ["NEUTRO", 1];
+}
+function procesarEmociones() {
+  if (!landmarker) { txtEmocion.textContent = "Cargando modelo..."; return; }
+  const rostros = analizarRostros();
+  txtEmocion.textContent = rostros.length ? rostros.map((r, i) => {
+    const [nombre, p] = clasificarEmocion(r.val);
+    const frente = r.P(10);                              // punto 10 = frente
+    dibujarEtiqueta(`${nombre} ${Math.round(p * 100)}%`, frente.x, frente.y - 10, "#7a0e12");
+    return `Persona ${i + 1}: ${EMOJI_EMOCION[nombre]} ${nombre}`;
+  }).join("\n") : "No veo rostros.";
+}
+
+// --- Filtros AR: se pegan emojis sobre puntos del rostro, girados con la inclinación de la cabeza ---
+const chkFiltro = { gafas: $("chkGafas"), sombrero: $("chkSombrero"), nariz: $("chkNariz"), alacran: $("chkAlacran") };
+function sprite(emoji, x, y, tam, giro) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(giro);
+  ctx.scale(-1, 1);                    // el canvas está en espejo por CSS: así el emoji no sale al revés
+  ctx.font = `${tam}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(emoji, 0, 0);
+  ctx.restore();
+}
+// El alacrán es una IMAGEN (alacran.png, con fondo transparente), no un emoji. Se carga una sola vez.
+const imgAlacran = new Image();
+imgAlacran.src = "alacran.png";
+function spriteImg(img, x, y, ancho, giro) {
+  if (!img.complete || !img.naturalWidth) return;   // todavía no terminó de cargar (o no existe el archivo)
+  const alto = ancho * img.naturalHeight / img.naturalWidth;   // conserva la proporción para no deformarlo
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(giro);
+  ctx.scale(-1, 1);                    // mismo truco que en sprite(): el espejo CSS no lo voltea al revés
+  ctx.drawImage(img, -ancho / 2, -alto / 2, ancho, alto);
+  ctx.restore();
+}
+function procesarFiltros() {
+  analizarRostros().forEach(({ P }) => {
+    const [a, b] = [P(33), P(263)].sort((m, n) => m.x - n.x);       // ojos, de izquierda a derecha
+    const giro = Math.atan2(b.y - a.y, b.x - a.x);                  // inclinación de la línea de los ojos
+    const ancho = Math.hypot(P(234).x - P(454).x, P(234).y - P(454).y);   // ancho del rostro (mejilla a mejilla)
+    const arriba = { x: Math.sin(giro), y: -Math.cos(giro) };       // hacia dónde está "arriba" en la cabeza
+    const frente = P(10), nariz = P(1), mejilla = P(454);
+    if (chkFiltro.gafas.checked) sprite("🕶️", (a.x + b.x) / 2, (a.y + b.y) / 2, ancho * 0.95, giro);
+    if (chkFiltro.sombrero.checked) sprite("🎩", frente.x + arriba.x * ancho * 0.35, frente.y + arriba.y * ancho * 0.35, ancho * 0.9, giro);
+    if (chkFiltro.nariz.checked) sprite("🔴", nariz.x, nariz.y, ancho * 0.25, giro);
+    if (chkFiltro.alacran.checked) spriteImg(imgAlacran, mejilla.x + (nariz.x - mejilla.x) * 0.25, mejilla.y, ancho * 0.45, giro);
+  });
+}
+$("btnFotoAR").addEventListener("click", () => {      // foto = video + filtros, en espejo como se ve
+  if (!video.videoWidth) return mostrarAviso("Activa la cámara primero.");
+  const c = document.createElement("canvas");
+  c.width = lienzo.width; c.height = lienzo.height;
+  const g = c.getContext("2d");
+  g.translate(c.width, 0); g.scale(-1, 1);
+  g.drawImage(video, 0, 0, c.width, c.height);
+  g.drawImage(lienzo, 0, 0);
+  const url = c.toDataURL("image/jpeg", 0.92), nombre = `filtro_${Date.now()}.jpg`;
+  fotos.push({ nombre, url });                        // también entra al ZIP
+  bajar(url, nombre);
+  registrar("Foto con filtro guardada");
+});
+
+// 13c) CUERPO COMPLETO (Pose) Y TRADUCTOR DE SEÑAS ----------------------------------------
+const txtPose = $("txtPose"), txtSena = $("txtSena"), txtPalabra = $("txtPalabra");
+const MODELO_POSE =
+  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+
+// --- Cuerpo completo: PoseLandmarker da 33 puntos por persona (0 = nariz, 11/12 = hombros, 15/16 = muñecas) ---
+let poseDet = null, cargandoPose = false;
+const rep = { arriba: false, cuenta: 0 };     // contador de "brazos arriba"
+async function crearPose() {
+  if (poseDet || cargandoPose) return;
+  cargandoPose = true;
+  txtPose.textContent = "Cargando modelo...";
+  const crear = (delegate) => PoseLandmarker.createFromOptions(vision, {
+    baseOptions: { modelAssetPath: MODELO_POSE, delegate }, runningMode: "VIDEO", numPoses: 2
+  });
+  try {
+    try { poseDet = await crear("GPU"); } catch { poseDet = await crear("CPU"); }
+    txtPose.textContent = "Párate donde se vea tu cuerpo.";
+  } catch (error) {
+    console.error(error);
+    txtPose.textContent = "No se pudo cargar el modelo. Revisa tu internet y vuelve a elegir este modo.";
+  } finally { cargandoPose = false; }
+}
+function procesarPose() {
+  if (!poseDet) return;
+  const res = poseDet.detectForVideo(video, performance.now());
+  res.landmarks.forEach(pts => {                       // esqueleto de cada persona
+    dibujante.drawConnectors(pts, PoseLandmarker.POSE_CONNECTIONS, { color: "#ffffff", lineWidth: 3 });
+    dibujante.drawLandmarks(pts, { color: "#f5d547", radius: 3 });
+  });
+  const p = res.landmarks[0];                          // el conteo usa a la primera persona
+  if (!p) { txtPose.textContent = "No veo a nadie de cuerpo completo."; return; }
+  const visibles = [p[15], p[16]].every(m => m.visibility > 0.5);   // las muñecas deben verse
+  const hombros = (p[11].y + p[12].y) / 2;             // en la imagen, "más arriba" = y más pequeña
+  const arriba = visibles && p[15].y < p[0].y && p[16].y < p[0].y;       // ambas muñecas sobre la nariz
+  const abajo = visibles && p[15].y > hombros && p[16].y > hombros;      // ambas bajo los hombros
+  if (arriba && !rep.arriba) { rep.arriba = true; rep.cuenta++; }        // cuenta al SUBIR (una vez por repetición)
+  if (abajo) rep.arriba = false;                                         // al bajar se "rearma"
+  txtPose.textContent = `Repeticiones: ${rep.cuenta}\n${arriba ? "BRAZOS ARRIBA" : abajo ? "BRAZOS ABAJO" : "..."}`;
+}
+$("btnPoseReiniciar").addEventListener("click", () => { rep.cuenta = 0; rep.arriba = false; });
+
+// --- Traductor de señas básico ---
+// Cada seña se identifica por QUÉ dedos están estirados: [pulgar, índice, medio, anular, meñique] -> "10001".
+// Es un subconjunto sencillo inspirado en el alfabeto manual (no es un idioma de señas completo).
+const SENAS = {
+  "00000": "A", "01111": "B", "11000": "L", "00001": "I", "10001": "Y",
+  "01100": "V", "01110": "W", "11111": "HOLA", "11001": "TE QUIERO"
+};
+const FRAMES_SENA = 12;                                 // ~0.4 s mostrando la misma seña para escribirla
+const senas = { texto: "", actual: "", frames: 0, listo: true };
+function procesarSenas(manos) {
+  const m = manos[0];                                   // se usa la primera mano
+  const sena = m ? (SENAS[m.estirados.map(Number).join("")] ?? "") : "";
+  if (sena !== senas.actual) { senas.actual = sena; senas.frames = 1; senas.listo = true; }
+  else senas.frames++;
+  txtSena.textContent = sena || "-";
+  if (sena && senas.listo && senas.frames >= FRAMES_SENA) {   // una vez por seña: para repetir una letra hay que cambiar de seña
+    senas.listo = false;
+    senas.texto += sena.length === 1 ? sena : ` ${sena} `;
+    txtPalabra.textContent = `Texto: ${senas.texto}`;
+  }
+}
+const mostrarTexto = () => { txtPalabra.textContent = `Texto: ${senas.texto}`; };
+$("btnEspacio").addEventListener("click", () => { senas.texto += " "; mostrarTexto(); });
+$("btnBorrarLetra").addEventListener("click", () => { senas.texto = senas.texto.slice(0, -1); mostrarTexto(); });
+$("btnLimpiarSenas").addEventListener("click", () => { senas.texto = ""; mostrarTexto(); });
+$("btnVoz").addEventListener("click", () => {            // la computadora lee el texto en voz alta
+  if (!("speechSynthesis" in window) || !senas.texto.trim()) return mostrarAviso("No hay texto para leer.");
+  const voz = new SpeechSynthesisUtterance(senas.texto.toLowerCase());
+  voz.lang = "es-ES";
+  speechSynthesis.speak(voz);
+});
+
+// 13d) ESTADÍSTICAS EN VIVO ------------------------------------------------------------------
+// Las gráficas se dibujan a mano en un <canvas> (sin librerías extra): es poco código y se entiende todo.
+// Idea: una "muestra" por segundo (no una por cuadro) para que las gráficas sean legibles y livianas.
+const stat = { inicio: 0, ultima: 0, hist: [], dedos: [0, 0, 0, 0, 0, 0], maxPersonas: 0, manos: 0 };
+const MAX_HIST = 60;                 // la gráfica de líneas muestra los últimos 60 segundos
+const GRAF = { margen: 30, texto: "#cfcfd6", rejilla: "rgba(255,255,255,.12)", rostros: "#5cff8a", manos: "#ff6b73", barras: "#c42a32" };
+
+function muestrearEstadisticas(r, manos) {
+  const ahora = performance.now();
+  if (!stat.inicio) stat.inicio = ahora;
+  stat.maxPersonas = Math.max(stat.maxPersonas, r);
+  if (ahora - stat.ultima < 1000) return;              // solo una muestra por segundo
+  stat.ultima = ahora;
+  stat.hist.push({ r, h: manos.length });
+  if (stat.hist.length > MAX_HIST) stat.hist.shift();   // descarta lo más viejo
+  manos.forEach(m => { stat.dedos[m.n]++; stat.manos++; });
+  const seg = Math.floor((ahora - stat.inicio) / 1000);
+  $("stTiempo").textContent = `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, "0")}`;
+  $("stMaxPersonas").textContent = stat.maxPersonas;
+  $("stManos").textContent = stat.manos;
+  $("stFotos").textContent = fotos.length;
+  graficaLinea();
+  graficaBarras();
+}
+
+// Gráfica de líneas: eje X = tiempo (0 a 60 s), eje Y = cantidad. Una línea para rostros y otra para manos.
+function graficaLinea() {
+  const c = $("grafLinea"), g = c.getContext("2d"), W = c.width, H = c.height, m = GRAF.margen;
+  g.clearRect(0, 0, W, H);
+  const tope = Math.max(4, ...stat.hist.map(p => Math.max(p.r, p.h)));   // la escala se ajusta sola
+  g.font = "12px sans-serif";
+  for (let i = 0; i <= tope; i++) {                                      // rejilla horizontal + números
+    const y = H - m - (H - 2 * m) * i / tope;
+    g.strokeStyle = GRAF.rejilla; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(m, y); g.lineTo(W - 10, y); g.stroke();
+    g.fillStyle = GRAF.texto; g.fillText(i, 8, y + 4);
+  }
+  const serie = (clave, color) => {                                      // dibuja una línea uniendo las muestras
+    g.strokeStyle = color; g.lineWidth = 2.5; g.beginPath();
+    stat.hist.forEach((p, i) => {
+      const x = m + (W - m - 10) * i / (MAX_HIST - 1);
+      const y = H - m - (H - 2 * m) * p[clave] / tope;
+      if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    });
+    g.stroke();
+  };
+  serie("r", GRAF.rostros);
+  serie("h", GRAF.manos);
+  g.fillStyle = GRAF.rostros; g.fillText("Rostros", m + 4, 14);
+  g.fillStyle = GRAF.manos; g.fillText("Manos", m + 70, 14);
+}
+
+// Gráfica de barras: cuántas veces se mostró cada número de dedos (0 a 5).
+function graficaBarras() {
+  const c = $("grafBarras"), g = c.getContext("2d"), W = c.width, H = c.height, m = GRAF.margen;
+  g.clearRect(0, 0, W, H);
+  const tope = Math.max(1, ...stat.dedos);
+  const ancho = (W - m - 10) / stat.dedos.length;                        // espacio de cada barra
+  g.font = "12px sans-serif"; g.textAlign = "center";
+  stat.dedos.forEach((v, i) => {
+    const alto = (H - 2 * m) * v / tope;
+    const x = m + ancho * i + ancho * 0.15;
+    g.fillStyle = GRAF.barras; g.fillRect(x, H - m - alto, ancho * 0.7, alto);
+    g.fillStyle = GRAF.texto;
+    g.fillText(i, x + ancho * 0.35, H - m + 16);                         // número de dedos
+    if (v) g.fillText(v, x + ancho * 0.35, H - m - alto - 6);            // cantidad sobre la barra
+  });
+  g.textAlign = "left";                                                  // se deja como estaba para no afectar otros textos
+}
+
+$("btnStatReset").addEventListener("click", () => {
+  Object.assign(stat, { inicio: 0, ultima: 0, hist: [], dedos: [0, 0, 0, 0, 0, 0], maxPersonas: 0, manos: 0 });
+  muestrearEstadisticas(0, []);
 });
 
 // 13b) AVISOS TEMPORALES

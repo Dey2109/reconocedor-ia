@@ -56,6 +56,11 @@
     <button type="button" data-modo-tab="sonrisa">Sonrisa</button>
     <button type="button" data-modo-tab="ppt">Piedra, papel, tijera</button>
     <button type="button" data-modo-tab="presentacion">Presentación</button>
+    <button type="button" data-modo-tab="gestosia">Gestos con IA</button>
+    <button type="button" data-modo-tab="emociones">Emociones</button>
+    <button type="button" data-modo-tab="filtros">Filtros AR</button>
+    <button type="button" data-modo-tab="pose">Cuerpo completo</button>
+    <button type="button" data-modo-tab="senas">Traductor de señas</button>
   </nav>
   <select id="selModo" class="oculto" aria-hidden="true" tabindex="-1">
     <option value="gestos">Gestos</option>
@@ -66,6 +71,11 @@
     <option value="sonrisa">Sonrisa</option>
     <option value="ppt">Piedra, papel, tijera</option>
     <option value="presentacion">Presentación</option>
+    <option value="gestosia">Gestos con IA</option>
+    <option value="emociones">Emociones</option>
+    <option value="filtros">Filtros AR</option>
+    <option value="pose">Cuerpo completo</option>
+    <option value="senas">Traductor de señas</option>
   </select>
 
   <!-- CONTENIDO PRINCIPAL -->
@@ -147,6 +157,44 @@
         </div>
       </div>
 
+      <div data-modo="gestosia" hidden class="panel__section panel__section--mode botones">
+        <h2 class="panel__subtitle">Gestos con IA</h2>
+        <p id="txtGestoIA" class="reaccion">Muestra una mano...</p>
+      </div>
+
+      <div data-modo="emociones" hidden class="panel__section panel__section--mode botones">
+        <h2 class="panel__subtitle">Emociones</h2>
+        <p id="txtEmocion" class="reaccion">Cargando modelo...</p>
+      </div>
+
+      <div data-modo="filtros" hidden class="panel__section panel__section--mode botones">
+        <h2 class="panel__subtitle">Filtros AR</h2>
+        <label class="campo campo--inline"><input type="checkbox" id="chkGafas" checked> Gafas</label>
+        <label class="campo campo--inline"><input type="checkbox" id="chkSombrero" checked> Sombrero</label>
+        <label class="campo campo--inline"><input type="checkbox" id="chkNariz"> Nariz roja</label>
+        <label class="campo campo--inline"><input type="checkbox" id="chkAlacran"> Alacr&#225;n</label>
+        <button id="btnFotoAR" type="button" class="btn btn--primary">Foto con filtro</button>
+      </div>
+
+      <div data-modo="pose" hidden class="panel__section panel__section--mode botones">
+        <h2 class="panel__subtitle">Cuerpo completo</h2>
+        <p id="txtPose" class="reaccion">Cargando modelo...</p>
+        <button id="btnPoseReiniciar" type="button" class="btn">Reiniciar contador</button>
+      </div>
+
+      <div data-modo="senas" hidden class="panel__section panel__section--mode botones">
+        <h2 class="panel__subtitle">Traductor de se&#241;as</h2>
+        <p id="txtSena" class="reaccion">-</p>
+        <p id="txtPalabra" class="panel__meta">Texto: </p>
+        <div class="btn-row">
+          <button id="btnEspacio" type="button" class="btn">Espacio</button>
+          <button id="btnBorrarLetra" type="button" class="btn">Borrar letra</button>
+        </div>
+        <button id="btnLimpiarSenas" type="button" class="btn btn--danger">Limpiar</button>
+        <button id="btnVoz" type="button" class="btn btn--primary">Leer en voz alta</button>
+        <p class="panel__meta">Se&#241;as: A, B, I, L, V, W, Y, HOLA y TE QUIERO. Man&#233;n la se&#241;a un momento.</p>
+      </div>
+
       <!-- Configuracion general -->
       <details class="panel__section panel__details" open>
         <summary class="panel__summary">Configuraci&#243;n</summary>
@@ -210,6 +258,23 @@
       </article>
 
 
+
+    <article class="tarjeta tarjeta--ancha">
+      <div class="panel__section-head">
+        <h2 class="panel__subtitle">Estad&#237;sticas en vivo</h2>
+        <button id="btnStatReset" type="button" class="btn btn--sm">Reiniciar</button>
+      </div>
+      <div class="stats">
+        <div class="stat"><span id="stTiempo">0:00</span><small>Tiempo activo</small></div>
+        <div class="stat"><span id="stMaxPersonas">0</span><small>M&#225;x. personas a la vez</small></div>
+        <div class="stat"><span id="stManos">0</span><small>Manos registradas</small></div>
+        <div class="stat"><span id="stFotos">0</span><small>Fotos tomadas</small></div>
+      </div>
+      <div class="graficas">
+        <figure><canvas id="grafLinea" width="600" height="220"></canvas><figcaption>Rostros y manos en los &#250;ltimos 60 s</figcaption></figure>
+        <figure><canvas id="grafBarras" width="600" height="220"></canvas><figcaption>Veces que se mostr&#243; cada n&#250;mero de dedos</figcaption></figure>
+      </div>
+    </article>
   </section>
 
 

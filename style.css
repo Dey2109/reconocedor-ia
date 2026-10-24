@@ -1297,3 +1297,23 @@ input:focus-visible, summary:focus-visible { outline: 2px solid var(--verde-text
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   REACCIONES (gestos con IA y emociones)
+   ═══════════════════════════════════════════════════════════════════════ */
+.reaccion { white-space: pre-line; font-size: clamp(1rem, .9rem + 1vw, 1.5rem); font-weight: 700; line-height: 1.5; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ESTADÍSTICAS EN VIVO
+   ═══════════════════════════════════════════════════════════════════════ */
+.tarjeta--ancha { grid-column: 1 / -1; }                 /* ocupa todo el ancho de las tarjetas */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+.stat { padding: .75rem; text-align: center; background: rgba(0, 0, 0, .25); border: 1px solid var(--borde); border-radius: var(--radius-sm); }
+.stat span { display: block; font-size: clamp(1.4rem, 1rem + 2vw, 2.2rem); font-weight: 700; line-height: 1.1; color: var(--verde-texto); }
+.stat small { color: var(--texto-dim); font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
+.graficas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 1rem; }
+.graficas figure { margin: 0; }
+.graficas canvas { display: block; width: 100%; height: auto; background: rgba(0, 0, 0, .25); border: 1px solid var(--borde); border-radius: var(--radius-sm); }
+.graficas figcaption { margin-top: .4rem; color: var(--texto-dim); font-size: .8rem; text-align: center; }
