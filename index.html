@@ -16,6 +16,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="apple-touch-icon" href="logo.png">
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -61,6 +62,7 @@
     <button type="button" data-modo-tab="filtros">Filtros AR</button>
     <button type="button" data-modo-tab="pose">Cuerpo completo</button>
     <button type="button" data-modo-tab="senas">Traductor de señas</button>
+    <button type="button" data-modo-tab="asistencia">Asistencia</button>
   </nav>
   <select id="selModo" class="oculto" aria-hidden="true" tabindex="-1">
     <option value="gestos">Gestos</option>
@@ -76,6 +78,7 @@
     <option value="filtros">Filtros AR</option>
     <option value="pose">Cuerpo completo</option>
     <option value="senas">Traductor de señas</option>
+    <option value="asistencia">Asistencia</option>
   </select>
 
   <!-- CONTENIDO PRINCIPAL -->
@@ -195,6 +198,15 @@
         <p class="panel__meta">Se&#241;as: A, B, I, L, V, W, Y, HOLA y TE QUIERO. Man&#233;n la se&#241;a un momento.</p>
       </div>
 
+      <div data-modo="asistencia" hidden class="panel__section panel__section--mode botones">
+        <h2 class="panel__subtitle">Asistencia</h2>
+        <label class="campo" for="inpPersona">Nombre</label>
+        <input type="text" id="inpPersona" maxlength="60" placeholder="Nombre de la persona" autocomplete="off">
+        <button id="btnAsistencia" type="button" class="btn btn--primary">Registrar asistencia</button>
+        <button id="btnRecargarAsistencia" type="button" class="btn">Actualizar lista</button>
+        <ul id="listaAsistencia" class="registro"></ul>
+      </div>
+
       <!-- Configuracion general -->
       <details class="panel__section panel__details" open>
         <summary class="panel__summary">Configuraci&#243;n</summary>
@@ -205,6 +217,11 @@
             <input type="checkbox" id="chkEsqueleto" checked> Mostrar esqueleto
           </label>
           <p class="panel__meta">FPS: <span id="txtFps">-</span></p>
+          <button id="btnOffline" type="button" class="btn">Preparar modo sin internet</button>
+          <p id="txtOffline" class="panel__meta">Descarga los modelos para usar el proyecto sin conexi&#243;n (necesita internet una vez).</p>
+          <button id="btnInstalar" type="button" class="btn btn--primary" hidden>Instalar app</button>
+          <label class="campo campo--inline"><input type="checkbox" id="chkBd"> Guardar en la base de datos</label>
+          <p id="txtBd" class="panel__meta">Opcional: necesita el servidor de la carpeta &quot;servidor&quot;.</p>
         </div>
       </details>
 

@@ -306,7 +306,7 @@ function guardarFoto(caja, i) {
   recorte.getContext("2d").drawImage(video, x, y, ancho, alto, 0, 0, ancho, alto);
   const url = recorte.toDataURL("image/jpeg", 0.9);
   const nombre = `persona${i + 1}_${Date.now()}.jpg`;
-  fotos.push({ nombre, url });
+  fotos.push({ nombre, url }); enviarFoto(nombre, url);
 
   const enlace = document.createElement("a");
   enlace.href = url;
@@ -436,6 +436,7 @@ function registrar(evento) {
   const li = document.createElement("li");
   li.textContent = `${new Date().toLocaleTimeString("es-SV")} - ${evento}`;
   listaRegistro.prepend(li);
+  enviarEvento(evento);   // opcional: también se guarda en la base de datos
   if (listaRegistro.children.length > 40) listaRegistro.lastChild.remove();   // solo se muestran los últimos 40
 }
 
@@ -599,7 +600,8 @@ const TEXTOS_MODO = {
   emociones: "Emociones: feliz, sorprendido, enojado, triste o neutro.",
   filtros: "Filtros AR: elige gafas, sombrero, nariz o alacrán.",
   pose: "Cuerpo completo: sube los dos brazos por encima de la cabeza y bájalos para contar.",
-  senas: "Señas básicas: mantén una seña un momento para escribir su letra."
+  senas: "Señas básicas: mantén una seña un momento para escribir su letra.",
+  asistencia: "Asistencia: escribe el nombre y registra a la persona con su foto (necesita el servidor)."
 };
 // Al cambiar de modo: se reinician los lápices y el gesto confirmado, se muestran solo los
 // controles de ese modo (los elementos con data-modo), y se apagan funciones del modo anterior.
@@ -926,6 +928,7 @@ function bucle() {
     else if (modo === "filtros") procesarFiltros();
     else if (modo === "pose") procesarPose();
     else if (modo === "senas") procesarSenas(manos);
+    else if (modo === "asistencia") { /* este modo no analiza cada cuadro: se usa con el botón */ }
     else procesarGestos(manos);
   }
   requestAnimationFrame(bucle);
@@ -1076,7 +1079,7 @@ $("btnFotoAR").addEventListener("click", () => {      // foto = video + filtros,
   g.drawImage(video, 0, 0, c.width, c.height);
   g.drawImage(lienzo, 0, 0);
   const url = c.toDataURL("image/jpeg", 0.92), nombre = `filtro_${Date.now()}.jpg`;
-  fotos.push({ nombre, url });                        // también entra al ZIP
+  fotos.push({ nombre, url }); enviarFoto(nombre, url);                        // también entra al ZIP
   bajar(url, nombre);
   registrar("Foto con filtro guardada");
 });
@@ -1254,3 +1257,120 @@ document.querySelectorAll("[data-modo-tab]").forEach(boton => {
 
 // Estado inicial de accesibilidad: la pestaña "Gestos" arranca activa
 document.querySelectorAll("[data-modo-tab]").forEach(b => b.setAttribute("aria-pressed", b.classList.contains("activo")));
+
+// 15) SIN INTERNET (PWA) --------------------------------------------------------------------
+// Una PWA es una página que se comporta como una app: se puede instalar y funciona sin conexión.
+// Piezas: sw.js (decide qué responde desde la copia guardada), manifest.webmanifest (nombre e iconos)
+// y este bloque, que registra el service worker y descarga de antemano los modelos pesados.
+const CACHE_EXT = "inframen-externo-v1";       // MISMO nombre que en sw.js
+const btnOffline = $("btnOffline"), txtOffline = $("txtOffline"), btnInstalar = $("btnInstalar");
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(e => console.warn("No se pudo registrar el service worker:", e));
+}
+
+// Lista de todo lo que la página descarga de internet. Si todo está en la caché, el proyecto abre sin conexión.
+const URLS_OFFLINE = [
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs",
+  "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js",
+  `${WASM}/vision_wasm_internal.js`, `${WASM}/vision_wasm_internal.wasm`,
+  `${WASM}/vision_wasm_nosimd_internal.js`, `${WASM}/vision_wasm_nosimd_internal.wasm`,
+  MODELO_ROSTRO, MODELO_MANO, MODELO_LANDMARKS, MODELO_GESTOS, MODELO_POSE
+];
+
+btnOffline.addEventListener("click", async () => {
+  if (!("caches" in window)) return mostrarAviso("Este navegador no permite guardar archivos. Usa localhost o HTTPS.");
+  btnOffline.disabled = true;
+  const cache = await caches.open(CACHE_EXT);
+  let listos = 0, fallos = 0;
+  for (const url of URLS_OFFLINE) {                    // uno por uno, mostrando el avance
+    txtOffline.textContent = `Descargando ${listos + fallos + 1} de ${URLS_OFFLINE.length}...`;
+    try { await cache.add(new Request(url, { mode: "cors" })); listos++; }
+    catch (error) { console.warn("No se pudo guardar:", url, error); fallos++; }
+  }
+  btnOffline.disabled = false;
+  txtOffline.textContent = fallos
+    ? `Guardados ${listos}, fallaron ${fallos}. Revisa tu internet y vuelve a intentar.`
+    : "Listo: ya funciona sin internet (recarga la página para confirmarlo).";
+  registrar(`Modo sin internet: ${listos} archivos guardados, ${fallos} fallos`);
+});
+
+// Botón "Instalar app": el navegador avisa cuando la página se puede instalar; guardamos ese aviso y lo usamos al hacer clic.
+let avisoInstalar = null;
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); avisoInstalar = e; btnInstalar.hidden = false; });
+btnInstalar.addEventListener("click", async () => {
+  if (!avisoInstalar) return;
+  avisoInstalar.prompt();
+  await avisoInstalar.userChoice;
+  avisoInstalar = null;
+  btnInstalar.hidden = true;
+});
+window.addEventListener("offline", () => mostrarAviso("Sin conexión: se usan los archivos guardados.", 6000));
+window.addEventListener("online", () => mostrarAviso("Conexión recuperada.", 3000));
+
+// 16) BASE DE DATOS (OPCIONAL) -------------------------------------------------------------
+// La página sigue funcionando sin servidor. Si el servidor de la carpeta "servidor/" está encendido y
+// marcas "Guardar en la base de datos", las fotos, el registro y la asistencia también se envían a MySQL.
+//   Navegador (esta página)  --fetch-->  servidor Express  --SQL-->  MySQL
+const API = "http://localhost:3000";                     // dirección del servidor Express
+const chkBd = $("chkBd"), txtBd = $("txtBd"), inpPersona = $("inpPersona"), listaAsistencia = $("listaAsistencia");
+const bd = { conectada: false };
+
+// Ayudante para hablar con el servidor: manda JSON, recibe JSON y lanza un error si algo sale mal.
+async function api(ruta, opciones = {}) {
+  const r = await fetch(`${API}/api${ruta}`, { headers: { "Content-Type": "application/json" }, ...opciones });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+  return r.json();
+}
+// Solo se comprueba cuando marcas la casilla (así no aparecen errores de conexión si nunca lo usas).
+async function comprobarServidor() {
+  if (!chkBd.checked) { txtBd.textContent = "Desactivado: nada se envía al servidor."; return; }
+  try { await api("/salud"); bd.conectada = true; txtBd.textContent = "Servidor y base de datos conectados."; }
+  catch { bd.conectada = false; txtBd.textContent = "No hay conexión con el servidor (¿ejecutaste npm start?)."; }
+}
+chkBd.addEventListener("change", comprobarServidor);
+const guardarEnBd = () => chkBd.checked && bd.conectada;
+
+// Envíos "en segundo plano": si fallan, la página no se detiene (solo avisa en la consola).
+function enviarFoto(nombre, imagen) {
+  if (guardarEnBd()) api("/fotos", { method: "POST", body: JSON.stringify({ nombre, imagen }) }).catch(console.warn);
+}
+function enviarEvento(evento) {
+  if (guardarEnBd()) api("/eventos", { method: "POST", body: JSON.stringify({ evento }) }).catch(console.warn);
+}
+
+// --- Asistencia: nombre escrito a mano + foto del primer rostro (NO reconoce quién es la persona) ---
+function recortarRostroDataUrl(caja) {
+  const c = document.createElement("canvas");
+  c.width = caja.ancho; c.height = caja.alto;
+  c.getContext("2d").drawImage(video, caja.x, caja.y, caja.ancho, caja.alto, 0, 0, caja.ancho, caja.alto);
+  return c.toDataURL("image/jpeg", 0.9);
+}
+async function cargarAsistencia() {
+  if (!guardarEnBd()) { listaAsistencia.replaceChildren(); return; }
+  try {
+    const filas = await api("/asistencia");
+    listaAsistencia.replaceChildren(...filas.map(f => {
+      const li = document.createElement("li");
+      li.textContent = `${new Date(f.creado_en).toLocaleString("es-SV")} - ${f.persona} `;   // textContent (no innerHTML): evita inyectar código con un nombre
+      const borrar = document.createElement("button");
+      borrar.type = "button"; borrar.className = "btn btn--sm"; borrar.textContent = "Borrar";
+      borrar.addEventListener("click", async () => { await api(`/asistencia/${f.id}`, { method: "DELETE" }); cargarAsistencia(); });
+      li.appendChild(borrar);
+      return li;
+    }));
+  } catch (error) { mostrarAviso(`No se pudo cargar la lista: ${error.message}`); }
+}
+$("btnAsistencia").addEventListener("click", async () => {
+  const persona = inpPersona.value.trim();
+  if (!persona) return mostrarAviso("Escribe el nombre primero.");
+  if (!guardarEnBd()) return mostrarAviso("Marca “Guardar en la base de datos” y enciende el servidor.");
+  if (cajasRostro.length === 0) return mostrarAviso("No veo ningún rostro.");
+  try {
+    await api("/asistencia", { method: "POST", body: JSON.stringify({ persona, imagen: recortarRostroDataUrl(cajasRostro[0]) }) });
+    inpPersona.value = "";
+    registrar(`Asistencia registrada: ${persona}`);
+    cargarAsistencia();
+  } catch (error) { mostrarAviso(`No se pudo guardar: ${error.message}`); }
+});
+$("btnRecargarAsistencia").addEventListener("click", cargarAsistencia);
